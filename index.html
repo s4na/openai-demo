@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenAI Voice Chat</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 800px;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .api-key-section {
+            padding: 20px;
+            background: #f7f7f7;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .api-key-section.hidden {
+            display: none;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .input-group input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .api-key-info {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .api-status {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            background: #e8f5e9;
+            border-bottom: 1px solid #c8e6c9;
+        }
+
+        .api-status.hidden {
+            display: none;
+        }
+
+        .api-status-text {
+            font-size: 14px;
+            color: #2e7d32;
+        }
+
+        .change-key-btn {
+            padding: 8px 16px;
+            font-size: 12px;
+            background: #fff;
+            color: #667eea;
+            border: 2px solid #667eea;
+        }
+
+        .change-key-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .voice-controls {
+            padding: 20px;
+            background: #f7f7f7;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .voice-controls.hidden {
+            display: none;
+        }
+
+        .voice-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ccc;
+        }
+
+        .status-indicator.listening {
+            background: #f44336;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .status-text {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .tts-toggle {
+            padding: 8px 16px;
+            font-size: 12px;
+            background: #fff;
+            color: #667eea;
+            border: 2px solid #667eea;
+        }
+
+        .tts-toggle.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .chat-container {
+            height: 400px;
+            overflow-y: auto;
+            padding: 20px;
+            background: #fafafa;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            display: flex;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message-content {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            word-wrap: break-word;
+            line-height: 1.4;
+        }
+
+        .message.user .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.assistant .message-content {
+            background: white;
+            color: #333;
+            border: 1px solid #e0e0e0;
+            border-bottom-left-radius: 4px;
+        }
+
+        .input-section {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .input-section.disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .message-input-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .message-input-group input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #ddd;
+            border-radius: 25px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .message-input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .icon-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .mic-btn {
+            background: linear-gradient(135deg, #f44336 0%, #e91e63 100%);
+        }
+
+        .mic-btn.listening {
+            animation: pulse-btn 1.5s infinite;
+        }
+
+        @keyframes pulse-btn {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.1);
+            }
+        }
+
+        .send-btn {
+            padding: 12px 30px;
+            border-radius: 25px;
+        }
+
+        .loading {
+            display: flex;
+            gap: 5px;
+            padding: 12px 16px;
+        }
+
+        .loading-dot {
+            width: 8px;
+            height: 8px;
+            background: #667eea;
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+
+        .loading-dot:nth-child(1) {
+            animation-delay: -0.32s;
+        }
+
+        .loading-dot:nth-child(2) {
+            animation-delay: -0.16s;
+        }
+
+        @keyframes bounce {
+            0%, 80%, 100% {
+                transform: scale(0);
+            }
+            40% {
+                transform: scale(1);
+            }
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #999;
+            padding: 60px 20px;
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+
+        .empty-state-text {
+            font-size: 16px;
+        }
+
+        .transcript {
+            padding: 10px 20px;
+            background: #fff3e0;
+            border-bottom: 1px solid #ffe0b2;
+            font-size: 14px;
+            color: #e65100;
+        }
+
+        .transcript.hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎙️ OpenAI Voice Chat</h1>
+            <p>音声でAIと会話しよう</p>
+        </div>
+
+        <div class="api-key-section" id="apiKeySection">
+            <div class="input-group">
+                <input
+                    type="password"
+                    id="apiKeyInput"
+                    placeholder="OpenAI API キーを入力してください"
+                    autocomplete="off"
+                >
+                <button id="saveApiKeyBtn">保存</button>
+            </div>
+            <div class="api-key-info">
+                ⚠️ APIキーはブラウザにのみ保存され、外部に送信されません
+            </div>
+        </div>
+
+        <div class="api-status hidden" id="apiStatus">
+            <span class="api-status-text">✓ APIキー設定済み</span>
+            <button class="change-key-btn" id="changeKeyBtn">変更</button>
+        </div>
+
+        <div class="voice-controls hidden" id="voiceControls">
+            <div class="voice-status">
+                <div class="status-indicator" id="statusIndicator"></div>
+                <span class="status-text" id="statusText">待機中</span>
+            </div>
+            <button class="tts-toggle active" id="ttsToggle">🔊 読み上げON</button>
+        </div>
+
+        <div class="transcript hidden" id="transcript">
+            認識中: <span id="transcriptText"></span>
+        </div>
+
+        <div class="chat-container" id="chatContainer">
+            <div class="empty-state">
+                <div class="empty-state-icon">👋</div>
+                <div class="empty-state-text">マイクボタンを押して話しかけてください</div>
+            </div>
+        </div>
+
+        <div class="input-section disabled" id="inputSection">
+            <div class="message-input-group">
+                <button class="icon-btn mic-btn" id="micBtn">🎤</button>
+                <input
+                    type="text"
+                    id="messageInput"
+                    placeholder="メッセージを入力..."
+                    autocomplete="off"
+                >
+                <button class="send-btn" id="sendBtn">送信</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let apiKey = '';
+        let conversationHistory = [];
+        let recognition = null;
+        let isListening = false;
+        let ttsEnabled = true;
+        let currentUtterance = null;
+
+        // DOM要素の取得
+        const apiKeySection = document.getElementById('apiKeySection');
+        const apiStatus = document.getElementById('apiStatus');
+        const apiKeyInput = document.getElementById('apiKeyInput');
+        const saveApiKeyBtn = document.getElementById('saveApiKeyBtn');
+        const changeKeyBtn = document.getElementById('changeKeyBtn');
+        const voiceControls = document.getElementById('voiceControls');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const statusText = document.getElementById('statusText');
+        const ttsToggle = document.getElementById('ttsToggle');
+        const transcript = document.getElementById('transcript');
+        const transcriptText = document.getElementById('transcriptText');
+        const chatContainer = document.getElementById('chatContainer');
+        const inputSection = document.getElementById('inputSection');
+        const messageInput = document.getElementById('messageInput');
+        const micBtn = document.getElementById('micBtn');
+        const sendBtn = document.getElementById('sendBtn');
+
+        // Web Speech API の初期化
+        function initSpeechRecognition() {
+            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                recognition = new SpeechRecognition();
+                recognition.lang = 'ja-JP';
+                recognition.continuous = false;
+                recognition.interimResults = true;
+
+                recognition.onstart = () => {
+                    isListening = true;
+                    micBtn.classList.add('listening');
+                    statusIndicator.classList.add('listening');
+                    statusText.textContent = '音声認識中...';
+                    transcript.classList.remove('hidden');
+                };
+
+                recognition.onresult = (event) => {
+                    let interimTranscript = '';
+                    let finalTranscript = '';
+
+                    for (let i = event.resultIndex; i < event.results.length; i++) {
+                        const transcriptPart = event.results[i][0].transcript;
+                        if (event.results[i].isFinal) {
+                            finalTranscript += transcriptPart;
+                        } else {
+                            interimTranscript += transcriptPart;
+                        }
+                    }
+
+                    transcriptText.textContent = interimTranscript || finalTranscript;
+
+                    if (finalTranscript) {
+                        messageInput.value = finalTranscript;
+                        setTimeout(() => {
+                            sendMessage();
+                        }, 500);
+                    }
+                };
+
+                recognition.onerror = (event) => {
+                    console.error('Speech recognition error:', event.error);
+                    stopListening();
+                    if (event.error !== 'no-speech' && event.error !== 'aborted') {
+                        alert(`音声認識エラー: ${event.error}`);
+                    }
+                };
+
+                recognition.onend = () => {
+                    stopListening();
+                };
+            } else {
+                alert('お使いのブラウザは音声認識をサポートしていません。Chrome、Edge、Safariをお使いください。');
+            }
+        }
+
+        function startListening() {
+            if (recognition && !isListening) {
+                // 進行中の音声合成を停止
+                if (window.speechSynthesis.speaking) {
+                    window.speechSynthesis.cancel();
+                }
+                recognition.start();
+            }
+        }
+
+        function stopListening() {
+            isListening = false;
+            micBtn.classList.remove('listening');
+            statusIndicator.classList.remove('listening');
+            statusText.textContent = '待機中';
+            transcript.classList.add('hidden');
+            transcriptText.textContent = '';
+        }
+
+        function speak(text) {
+            if (!ttsEnabled) return;
+
+            // 進行中の音声を停止
+            if (window.speechSynthesis.speaking) {
+                window.speechSynthesis.cancel();
+            }
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'ja-JP';
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+
+            utterance.onstart = () => {
+                statusText.textContent = '読み上げ中...';
+            };
+
+            utterance.onend = () => {
+                statusText.textContent = '待機中';
+            };
+
+            utterance.onerror = (event) => {
+                console.error('Speech synthesis error:', event);
+                statusText.textContent = '待機中';
+            };
+
+            currentUtterance = utterance;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        // ページ読み込み時にAPIキーを確認
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedApiKey = localStorage.getItem('openai_api_key');
+            if (savedApiKey) {
+                apiKey = savedApiKey;
+                showChatInterface();
+            }
+            initSpeechRecognition();
+        });
+
+        // APIキー保存
+        saveApiKeyBtn.addEventListener('click', () => {
+            const key = apiKeyInput.value.trim();
+            if (key) {
+                apiKey = key;
+                localStorage.setItem('openai_api_key', key);
+                apiKeyInput.value = '';
+                showChatInterface();
+            } else {
+                alert('APIキーを入力してください');
+            }
+        });
+
+        // APIキー変更
+        changeKeyBtn.addEventListener('click', () => {
+            if (confirm('APIキーを変更しますか？会話履歴はクリアされます。')) {
+                localStorage.removeItem('openai_api_key');
+                apiKey = '';
+                conversationHistory = [];
+                showApiKeyInput();
+                clearChat();
+            }
+        });
+
+        // マイクボタン
+        micBtn.addEventListener('click', () => {
+            if (isListening) {
+                recognition.stop();
+            } else {
+                startListening();
+            }
+        });
+
+        // TTS切り替え
+        ttsToggle.addEventListener('click', () => {
+            ttsEnabled = !ttsEnabled;
+            ttsToggle.classList.toggle('active');
+            ttsToggle.textContent = ttsEnabled ? '🔊 読み上げON' : '🔇 読み上げOFF';
+
+            if (!ttsEnabled && window.speechSynthesis.speaking) {
+                window.speechSynthesis.cancel();
+            }
+        });
+
+        // メッセージ送信（ボタン）
+        sendBtn.addEventListener('click', sendMessage);
+
+        // メッセージ送信（Enter）
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        function showChatInterface() {
+            apiKeySection.classList.add('hidden');
+            apiStatus.classList.remove('hidden');
+            voiceControls.classList.remove('hidden');
+            inputSection.classList.remove('disabled');
+            messageInput.focus();
+        }
+
+        function showApiKeyInput() {
+            apiKeySection.classList.remove('hidden');
+            apiStatus.classList.add('hidden');
+            voiceControls.classList.add('hidden');
+            inputSection.classList.add('disabled');
+        }
+
+        function clearChat() {
+            chatContainer.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">👋</div>
+                    <div class="empty-state-text">マイクボタンを押して話しかけてください</div>
+                </div>
+            `;
+        }
+
+        function addMessage(role, content) {
+            // 空の状態を削除
+            const emptyState = chatContainer.querySelector('.empty-state');
+            if (emptyState) {
+                emptyState.remove();
+            }
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            contentDiv.textContent = content;
+
+            messageDiv.appendChild(contentDiv);
+            chatContainer.appendChild(messageDiv);
+
+            // スクロールを最下部へ
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function showLoading() {
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'message assistant';
+            loadingDiv.id = 'loadingMessage';
+
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+
+            const loadingDots = document.createElement('div');
+            loadingDots.className = 'loading';
+            loadingDots.innerHTML = '<div class="loading-dot"></div><div class="loading-dot"></div><div class="loading-dot"></div>';
+
+            contentDiv.appendChild(loadingDots);
+            loadingDiv.appendChild(contentDiv);
+            chatContainer.appendChild(loadingDiv);
+
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function hideLoading() {
+            const loadingMessage = document.getElementById('loadingMessage');
+            if (loadingMessage) {
+                loadingMessage.remove();
+            }
+        }
+
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+            if (!message) return;
+
+            // ユーザーメッセージを表示
+            addMessage('user', message);
+            conversationHistory.push({ role: 'user', content: message });
+
+            // 入力をクリア
+            messageInput.value = '';
+
+            // 送信ボタンを無効化
+            sendBtn.disabled = true;
+            messageInput.disabled = true;
+            micBtn.disabled = true;
+
+            // ローディング表示
+            showLoading();
+
+            try {
+                const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: 'gpt-3.5-turbo',
+                        messages: conversationHistory,
+                        max_tokens: 1000,
+                        temperature: 0.7
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error?.message || 'APIリクエストが失敗しました');
+                }
+
+                const data = await response.json();
+                const assistantMessage = data.choices[0].message.content;
+
+                // ローディングを非表示
+                hideLoading();
+
+                // アシスタントメッセージを表示
+                addMessage('assistant', assistantMessage);
+                conversationHistory.push({ role: 'assistant', content: assistantMessage });
+
+                // 音声で読み上げ
+                speak(assistantMessage);
+
+            } catch (error) {
+                hideLoading();
+                console.error('Error:', error);
+                addMessage('assistant', `エラーが発生しました: ${error.message}`);
+            } finally {
+                // 送信ボタンを有効化
+                sendBtn.disabled = false;
+                messageInput.disabled = false;
+                micBtn.disabled = false;
+                messageInput.focus();
+            }
+        }
+    </script>
+</body>
+</html>
