@@ -1,0 +1,33 @@
+{
+  "name": "openai-voice-chat",
+  "version": "1.0.0",
+  "description": "OpenAI APIを使った音声対話型チャットアプリケーション",
+  "main": "index.html",
+  "scripts": {
+    "build": "echo 'No build step required for static site'",
+    "deploy": "echo 'Deployment handled by GitHub Actions'",
+    "start": "npx serve .",
+    "test": "echo 'No tests configured yet'"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/s4na/openai-demo.git"
+  },
+  "keywords": [
+    "openai",
+    "voice-chat",
+    "stt",
+    "tts",
+    "speech-recognition",
+    "speech-synthesis"
+  ],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/s4na/openai-demo/issues"
+  },
+  "homepage": "https://s4na.github.io/openai-demo",
+  "devDependencies": {
+    "serve": "^14.2.1"
+  }
+}
