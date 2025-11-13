@@ -431,7 +431,7 @@
         let recognition = null;
         let isListening = false;
         let ttsEnabled = true;
-        let currentUtterance = null;
+        let currentAudio = null;
 
         // DOM要素の取得
         const apiKeySection = document.getElementById('apiKeySection');
@@ -509,9 +509,10 @@
 
         function startListening() {
             if (recognition && !isListening) {
-                // 進行中の音声合成を停止
-                if (window.speechSynthesis.speaking) {
-                    window.speechSynthesis.cancel();
+                // 進行中の音声を停止
+                if (currentAudio) {
+                    currentAudio.pause();
+                    currentAudio = null;
                 }
                 recognition.start();
             }
@@ -526,34 +527,68 @@
             transcriptText.textContent = '';
         }
 
-        function speak(text) {
+        async function speak(text) {
             if (!ttsEnabled) return;
 
             // 進行中の音声を停止
-            if (window.speechSynthesis.speaking) {
-                window.speechSynthesis.cancel();
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio = null;
             }
 
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = 'ja-JP';
-            utterance.rate = 1.0;
-            utterance.pitch = 1.0;
+            try {
+                statusText.textContent = '音声生成中...';
 
-            utterance.onstart = () => {
-                statusText.textContent = '読み上げ中...';
-            };
+                // OpenAI TTS APIを呼び出し
+                const response = await fetch('https://api.openai.com/v1/audio/speech', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: 'tts-1',
+                        voice: 'alloy',
+                        input: text,
+                        speed: 1.0
+                    })
+                });
 
-            utterance.onend = () => {
+                if (!response.ok) {
+                    throw new Error('TTS APIリクエストが失敗しました');
+                }
+
+                // 音声データを取得
+                const audioBlob = await response.blob();
+                const audioUrl = URL.createObjectURL(audioBlob);
+
+                // 音声を再生
+                const audio = new Audio(audioUrl);
+                currentAudio = audio;
+
+                audio.onplay = () => {
+                    statusText.textContent = '読み上げ中...';
+                };
+
+                audio.onended = () => {
+                    statusText.textContent = '待機中';
+                    URL.revokeObjectURL(audioUrl);
+                    currentAudio = null;
+                };
+
+                audio.onerror = (event) => {
+                    console.error('Audio playback error:', event);
+                    statusText.textContent = '待機中';
+                    URL.revokeObjectURL(audioUrl);
+                    currentAudio = null;
+                };
+
+                await audio.play();
+
+            } catch (error) {
+                console.error('TTS error:', error);
                 statusText.textContent = '待機中';
-            };
-
-            utterance.onerror = (event) => {
-                console.error('Speech synthesis error:', event);
-                statusText.textContent = '待機中';
-            };
-
-            currentUtterance = utterance;
-            window.speechSynthesis.speak(utterance);
+            }
         }
 
         // ページ読み込み時にAPIキーを確認
@@ -605,8 +640,9 @@
             ttsToggle.classList.toggle('active');
             ttsToggle.textContent = ttsEnabled ? '🔊 読み上げON' : '🔇 読み上げOFF';
 
-            if (!ttsEnabled && window.speechSynthesis.speaking) {
-                window.speechSynthesis.cancel();
+            if (!ttsEnabled && currentAudio) {
+                currentAudio.pause();
+                currentAudio = null;
             }
         });
 
